@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define THREADS 10
+#define THREADS 1
 #define ROW 10
 #define COL 63
 
@@ -20,14 +20,14 @@ void * do_producer() {
   char *line = NULL;
   size_t size;
   int i = 0;
+  if(pthread_barrier_init(&barr, NULL, THREADS)) {
+    printf("Could not create a barrier\n");
+    return -1;
+  }
   while (getline(&line, &size, stdin) > -1) {
     printf("%s", line);
     pthread_t crunch;
 
-    if(pthread_barrier_init(&barr, NULL, THREADS)) {
-      printf("Could not create a barrier\n");
-      return -1;
-    }
     if(pthread_create(&crunch, NULL, &do_crunch, line)) {
       printf("Couldn't create thread\n");
     }
@@ -35,8 +35,15 @@ void * do_producer() {
     if (pthread_join(crunch, NULL)) {
       printf("Could not join thread\n");
     }
-
     i++;
+    if ( i % 10 == 0 ) {
+      int rc = pthread_barrier_wait(&barr);
+      if (rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD) {
+        printf("Could not wait on barrier\n");
+        exit(-1);
+      }
+    }
+
   }
   printf("Total lines: %d", i);
 }
@@ -88,11 +95,6 @@ void * do_consumer(char *line) {
   fprintf(file, "%s", line);
   fclose(file);
 
-  int rc = pthread_barrier_wait(&barr);
-  if (rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD) {
-    printf("Could not wait on barrier\n");
-    exit(-1);
-  }
 }
 
 int main(int argc, char **argv) {
