@@ -19,11 +19,15 @@ void * do_consumer();
 void * do_producer() {
   char *line = NULL;
   size_t size;
-  if (getline(&line, &size, stdin) == -1) {
-    printf("No line\n");
-  } else {
+  int i = 0;
+  while (getline(&line, &size, stdin) > -1) {
     printf("%s", line);
     pthread_t crunch;
+
+    if(pthread_barrier_init(&barr, NULL, THREADS)) {
+      printf("Could not create a barrier\n");
+      return -1;
+    }
     if(pthread_create(&crunch, NULL, &do_crunch, line)) {
       printf("Couldn't create thread\n");
     }
@@ -32,14 +36,9 @@ void * do_producer() {
       printf("Could not join thread\n");
     }
 
-    /*
-    int rc = pthread_barrier_wait(&barr);
-    if (rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD) {
-      printf("Could not wait on barrier\n");
-      exit(-1);
-    }
-    */
+    i++;
   }
+  printf("Total lines: %d", i);
 }
 
 void * do_crunch(char *line) {
@@ -88,6 +87,12 @@ void * do_consumer(char *line) {
   file = fopen("output.txt", "a+");
   fprintf(file, "%s", line);
   fclose(file);
+
+  int rc = pthread_barrier_wait(&barr);
+  if (rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD) {
+    printf("Could not wait on barrier\n");
+    exit(-1);
+  }
 }
 
 int main(int argc, char **argv) {
@@ -117,12 +122,6 @@ int main(int argc, char **argv) {
 
   pthread_t producer;
 
-  /*
-  if(pthread_barrier_init(&barr, NULL, THREADS)) {
-    printf("Could not create a barrier\n");
-    return -1;
-  }
-  */
   if (pthread_create(&producer, NULL, &do_producer, NULL)) {
     printf("Could not create thread \n");
     return -1;
