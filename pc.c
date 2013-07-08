@@ -16,22 +16,29 @@ void * do_crunch();
 void * do_gobble();
 void * do_consumer();
 
-void * do_producer(char *line) {
-  //do some stuff
-  //printf("%s", line);
-  pthread_t crunch;
-  if(pthread_create(&crunch, NULL, &do_crunch, line)) {
-    printf("Couldn't create thread\n");
-  }
+void * do_producer() {
+  char *line = NULL;
+  size_t size;
+  if (getline(&line, &size, stdin) == -1) {
+    printf("No line\n");
+  } else {
+    printf("%s", line);
+    pthread_t crunch;
+    if(pthread_create(&crunch, NULL, &do_crunch, line)) {
+      printf("Couldn't create thread\n");
+    }
 
-  if (pthread_join(crunch, NULL)) {
-    printf("Could not join thread\n");
-  }
+    if (pthread_join(crunch, NULL)) {
+      printf("Could not join thread\n");
+    }
 
-  int rc = pthread_barrier_wait(&barr);
-  if (rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD) {
-    printf("Could not wait on barrier\n");
-    exit(-1);
+    /*
+    int rc = pthread_barrier_wait(&barr);
+    if (rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD) {
+      printf("Could not wait on barrier\n");
+      exit(-1);
+    }
+    */
   }
 }
 
@@ -84,8 +91,9 @@ void * do_consumer(char *line) {
 }
 
 int main(int argc, char **argv) {
-  char *b[ROW];
+  //char *b[ROW];
 
+  /*
   int i;
   //b
   for (i=0; i<ROW; i++) {
@@ -104,31 +112,31 @@ int main(int argc, char **argv) {
     }
   }
   printf(b[0]);
+  */
+  printf("here");
 
+  pthread_t producer;
 
-
-  pthread_t producer[THREADS];
-
+  /*
   if(pthread_barrier_init(&barr, NULL, THREADS)) {
     printf("Could not create a barrier\n");
     return -1;
   }
-  for (i = 0; i < THREADS; ++i) {
-    if (pthread_create(&producer[i], NULL, &do_producer, b[i])) {
-      printf("Could not create thread %d\n", i);
-      return -1;
-    }
+  */
+  if (pthread_create(&producer, NULL, &do_producer, NULL)) {
+    printf("Could not create thread \n");
+    return -1;
   }
-  for (i = 0; i < THREADS; ++i) {
-    if (pthread_join(producer[i], NULL)) {
-      printf("Could not join thread %d\n", i);
-      return -1;
-    }
+  if (pthread_join(producer, NULL)) {
+    printf("Could not join thread \n");
+    return -1;
   }
   //this needs to change
+  /*
   for (i=0; i<ROW; i++) {
     free(b[i]);
   }
+  */
 
   return 0;
 }
