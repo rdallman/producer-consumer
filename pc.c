@@ -10,43 +10,101 @@
 #define ROW 10
 #define COL 63
 
-pthread_mutex_t mutex;
 int threads;
+
+typedef struct Node {
+  char *item;
+  struct Node* next;
+} Node;
+
+typedef struct Queue {
+  int size;
+  Node* head;
+  Node* tail;
+
+  void (*push) (struct Queue*, char*);
+  char* (*pop) (struct Queue*);
+} Queue;
+
+typedef struct Params {
+  struct Queue* q;
+  struct Node* node;
+} Params;
+
+
+void push (Queue* q, char *line);
+char* pop (Queue* q);
 
 void * do_crunch();
 void * do_gobble();
 void * do_consumer();
 
+void push (Queue* q, char *line) {
+  Node* n = (Node*) malloc (sizeof(Node));
+  n->item = line;
+  n->next = NULL;
+  if (q->head == NULL) {
+    q->head = n;
+  } else {
+    q->tail->next = n;
+  }
+  q->tail = n;
+  q->size++;
+}
+
+char * pop(Queue* q) {
+  char *item = q->head->item;
+  Node* head = q->head;
+  q->head = q->head->next;
+  q->size--;
+  free(head);
+  return item;
+}
+
 void * do_producer() {
-  char *line = NULL;
+  char *line = (char*)malloc(COL * sizeof(char));
   size_t size;
   int i = 0;
   threads = 0;
+  pthread_t crunch;
+  Queue q;
+  q.size = 0;
+  q.head = NULL;
+  q.tail = NULL;
+  q.push = &push;
+  q.pop = &pop;
 
   while (getline(&line, &size, stdin) > -1) {
-    pthread_t crunch;
 
-    if(pthread_create(&crunch, NULL, &do_crunch, line)) {
+    q.push(&q, line);
+    printf("%s", q.pop(&q));
+    Params p;
+    p.q = &q;
+    p.node = &q.tail;
+    if(pthread_create(&crunch, NULL, &do_crunch, &p)) {
       printf("Couldn't create thread\n");
     }
 
-    i++;
-    threads++;
-    //printf("%d", threads);
-
-    if ( threads == 10 ) {
-      if(pthread_join(crunch, NULL))
+    /*
+    if (q.size = ROW) {
+      if(pthread_join(q.pop, NULL))
       {
         printf("Could not join thread\n");
       }
     }
+    */
+
+    i++;
+    threads++;
+    printf("%d", threads);
 
   }
   printf("\n\nTotal lines: %d", i);
 }
 
 void * do_crunch(char *line) {
-  //do some stuff
+
+  //char *line = p->node->item;
   char *s;
 
   s = strchr(line, ' ');
@@ -67,6 +125,7 @@ void * do_crunch(char *line) {
 
 void * do_gobble(char *line) {
   //do some stuff
+  //char *line = p->node->item;
 
   int i = 0;
   while (line[i] != '\0') {
@@ -84,8 +143,11 @@ void * do_gobble(char *line) {
   }
 }
 
-void * do_consumer(char *line) {
+void * do_consumer(struct Params *p) {
+  /*
+  char *line = p->q.pop(&p->q);
   printf("%s", line);
+  */
   threads--;
 }
 
@@ -132,3 +194,4 @@ int main(int argc, char **argv) {
 
   return 0;
 }
+
