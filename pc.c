@@ -10,7 +10,6 @@
 #define ROW 10
 #define COL 63
 
-int threads;
 
 typedef struct Node {
   char *item;
@@ -31,9 +30,16 @@ void push (Queue* q, char *line);
 char* pop (Queue* q);
 char* peek (Queue* q);
 
+void * do_producder();
 void * do_crunch();
 void * do_gobble();
 void * do_consumer();
+
+int threads;
+Queue q1;
+Queue q2;
+Queue q3;
+
 
 void push (Queue* q, char *line) {
   Node* n = (Node*) malloc (sizeof(Node));
@@ -67,31 +73,11 @@ void * do_producer() {
   size_t size;
   int i = 0;
   threads = 0;
-  pthread_t crunch;
-  Queue q;
-  q.size = 0;
-  q.head = NULL;
-  q.tail = NULL;
-  q.push = &push;
-  q.pop = &pop;
-  q.peek = &peek;
 
   while (getline(&line, &size, stdin) > -1) {
 
-    q.push(&q, line);
-    //printf("%s", q.pop(&q));
-    if(pthread_create(&crunch, NULL, &do_crunch, &q)) {
-      printf("Couldn't create thread\n");
-    }
-
-    /*
-    if (q.size = ROW) {
-      if(pthread_join(q.pop, NULL))
-      {
-        printf("Could not join thread\n");
-      }
-    }
-    */
+    q1.push(&q1, line);
+    printf("%s", line);
 
     i++;
     threads++;
@@ -101,8 +87,8 @@ void * do_producer() {
   printf("\n\nTotal lines: %d", i);
 }
 
-void * do_crunch(Queue *q) {
-  char *line = q->peek(q);
+void * do_crunch() {
+  char *line = q1.pop(&q1);
 
   char *s;
 
@@ -111,83 +97,78 @@ void * do_crunch(Queue *q) {
     line[s-line] = '*';
     s = strchr(s+1, ' ');
   }
-  pthread_t gobble;
-  if(pthread_create(&gobble, NULL, &do_gobble, q)) {
-    printf("Couldn't create thread\n");
-  }
-
-  if(pthread_join(gobble, NULL))
-  {
-    printf("Could not join thread\n");
-  }
+  q2.push(&q2, line);
 }
 
-void * do_gobble(Queue *q) {
-  char *line = q->peek(q);
+void * do_gobble() {
+  /*
+  char *line = q2.pop(&q2);
 
   int i = 0;
   while (line[i] != '\0') {
     line[i] = toupper(line[i]);
     i++;
   }
-  pthread_t consumer;
-  if(pthread_create(&consumer, NULL, &do_consumer, q)) {
-    printf("Couldn't create thread\n");
-  }
-
-  if(pthread_join(consumer, NULL))
-  {
-    printf("Could not join thread\n");
-  }
+  q3.push(&q3, line);
+  */
 }
 
-void * do_consumer(Queue *q) {
-  char *line = q->pop(q);
+void * do_consumer() {
+  /*
+  char *line = q3.pop(&q3);
   printf("%s", line);
   threads--;
+  */
 }
 
+//bad
+
 int main(int argc, char **argv) {
-  //char *b[ROW];
+  q1.size = 0;
+  q1.head = NULL;
+  q1.tail = NULL;
+  q1.push = &push;
+  q1.pop = &pop;
+  q1.peek = &peek;
 
-  /*
-  int i;
-  //b
-  for (i=0; i<ROW; i++) {
-    if ((b[i] = malloc(sizeof(char) * COL)) == NULL) {
-      printf("unable to allocate memory \n");
-      return -1;
-    }
-  }
-
-  for (i=0; i<ROW; i++) {
-    char line = NULL;
-    size_t size;
-    if (fgets(b[i], COL, stdin)) {
-      //bad
-    } else {
-    }
-  }
-  printf(b[0]);
-  */
-
+  q2 = q1;
+  q3 = q1;
   pthread_t producer;
+  pthread_t crunch;
+  pthread_t gobble;
+  pthread_t consumer;
 
   if (pthread_create(&producer, NULL, &do_producer, NULL)) {
     printf("Could not create thread \n");
     return -1;
   }
+  if(pthread_create(&crunch, NULL, &do_crunch, NULL)) {
+    printf("Couldn't create thread\n");
+  }
+  if(pthread_create(&gobble, NULL, &do_gobble, NULL)) {
+    printf("Couldn't create thread\n");
+  }
+  if(pthread_create(&consumer, NULL, &do_consumer, NULL)) {
+    printf("Couldn't create thread\n");
+  }
+
+
   if (pthread_join(producer, NULL)) {
     printf("Could not join thread \n");
     return -1;
   }
-  //this needs to change
-  /*
-  for (i=0; i<ROW; i++) {
-    free(b[i]);
+  if(pthread_join(crunch, NULL))
+  {
+    printf("Could not join thread\n");
   }
-  */
+  if(pthread_join(gobble, NULL))
+  {
+    printf("Could not join thread\n");
+  }
+  if(pthread_join(consumer, NULL))
+  {
+    printf("Could not join thread\n");
+  }
 
   return 0;
 }
-
