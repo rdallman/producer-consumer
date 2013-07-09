@@ -77,10 +77,10 @@ void * do_producer() {
   while (getline(&line, &size, stdin) > -1) {
 
     q.push(&q, line);
-    printf("%s", q.pop(&q));
+    //printf("%s", q.pop(&q));
     Params p;
     p.q = &q;
-    p.node = &q.tail;
+    p.node = q.tail;
     if(pthread_create(&crunch, NULL, &do_crunch, &p)) {
       printf("Couldn't create thread\n");
     }
@@ -102,9 +102,10 @@ void * do_producer() {
   printf("\n\nTotal lines: %d", i);
 }
 
-void * do_crunch(char *line) {
+void * do_crunch(void *args) {
+  Params *p = args;
+  char *line = p->node->item;
 
-  //char *line = p->node->item;
   char *s;
 
   s = strchr(line, ' ');
@@ -113,7 +114,7 @@ void * do_crunch(char *line) {
     s = strchr(s+1, ' ');
   }
   pthread_t gobble;
-  if(pthread_create(&gobble, NULL, &do_gobble, line)) {
+  if(pthread_create(&gobble, NULL, &do_gobble, p)) {
     printf("Couldn't create thread\n");
   }
 
@@ -123,9 +124,9 @@ void * do_crunch(char *line) {
   }
 }
 
-void * do_gobble(char *line) {
-  //do some stuff
-  //char *line = p->node->item;
+void * do_gobble(void *args) {
+  Params *p = args;
+  char *line = p->node->item;
 
   int i = 0;
   while (line[i] != '\0') {
@@ -133,7 +134,7 @@ void * do_gobble(char *line) {
     i++;
   }
   pthread_t consumer;
-  if(pthread_create(&consumer, NULL, &do_consumer, line)) {
+  if(pthread_create(&consumer, NULL, &do_consumer, p)) {
     printf("Couldn't create thread\n");
   }
 
@@ -143,9 +144,11 @@ void * do_gobble(char *line) {
   }
 }
 
-void * do_consumer(struct Params *p) {
-  /*
-  char *line = p->q.pop(&p->q);
+void * do_consumer(void *args) {
+  Params *p = args;
+  Queue *q = p->q;
+  /* fuck c
+  char* line = p->q.pop(&q);
   printf("%s", line);
   */
   threads--;
