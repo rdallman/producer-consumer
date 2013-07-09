@@ -24,16 +24,12 @@ typedef struct Queue {
 
   void (*push) (struct Queue*, char*);
   char* (*pop) (struct Queue*);
+  char* (*peek) (struct Queue*);
 } Queue;
-
-typedef struct Params {
-  struct Queue* q;
-  struct Node* node;
-} Params;
-
 
 void push (Queue* q, char *line);
 char* pop (Queue* q);
+char* peek (Queue* q);
 
 void * do_crunch();
 void * do_gobble();
@@ -61,6 +57,11 @@ char * pop(Queue* q) {
   return item;
 }
 
+char * peek(Queue* q) {
+  char *item = q->head->item;
+  return item;
+}
+
 void * do_producer() {
   char *line = (char*)malloc(COL * sizeof(char));
   size_t size;
@@ -73,15 +74,13 @@ void * do_producer() {
   q.tail = NULL;
   q.push = &push;
   q.pop = &pop;
+  q.peek = &peek;
 
   while (getline(&line, &size, stdin) > -1) {
 
     q.push(&q, line);
     //printf("%s", q.pop(&q));
-    Params p;
-    p.q = &q;
-    p.node = q.tail;
-    if(pthread_create(&crunch, NULL, &do_crunch, &p)) {
+    if(pthread_create(&crunch, NULL, &do_crunch, &q)) {
       printf("Couldn't create thread\n");
     }
 
@@ -102,9 +101,8 @@ void * do_producer() {
   printf("\n\nTotal lines: %d", i);
 }
 
-void * do_crunch(void *args) {
-  Params *p = args;
-  char *line = p->node->item;
+void * do_crunch(Queue *q) {
+  char *line = q->peek(q);
 
   char *s;
 
@@ -114,7 +112,7 @@ void * do_crunch(void *args) {
     s = strchr(s+1, ' ');
   }
   pthread_t gobble;
-  if(pthread_create(&gobble, NULL, &do_gobble, p)) {
+  if(pthread_create(&gobble, NULL, &do_gobble, q)) {
     printf("Couldn't create thread\n");
   }
 
@@ -124,9 +122,8 @@ void * do_crunch(void *args) {
   }
 }
 
-void * do_gobble(void *args) {
-  Params *p = args;
-  char *line = p->node->item;
+void * do_gobble(Queue *q) {
+  char *line = q->peek(q);
 
   int i = 0;
   while (line[i] != '\0') {
@@ -134,7 +131,7 @@ void * do_gobble(void *args) {
     i++;
   }
   pthread_t consumer;
-  if(pthread_create(&consumer, NULL, &do_consumer, p)) {
+  if(pthread_create(&consumer, NULL, &do_consumer, q)) {
     printf("Couldn't create thread\n");
   }
 
@@ -144,13 +141,9 @@ void * do_gobble(void *args) {
   }
 }
 
-void * do_consumer(void *args) {
-  Params *p = args;
-  Queue *q = p->q;
-  /* fuck c
-  char* line = p->q.pop(&q);
+void * do_consumer(Queue *q) {
+  char *line = q->pop(q);
   printf("%s", line);
-  */
   threads--;
 }
 
