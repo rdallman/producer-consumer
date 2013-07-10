@@ -10,6 +10,7 @@
 #define ROW 10
 #define COL 63
 
+int done;
 
 typedef struct Node {
   char *item;
@@ -35,6 +36,7 @@ void * do_crunch();
 void * do_gobble();
 void * do_consumer();
 
+int done;
 int threads;
 Queue q1;
 Queue q2;
@@ -56,18 +58,22 @@ void push (Queue* q, char *line) {
 }
 
 char * pop(Queue* q) {
-  char* item = malloc(COL * sizeof(char) + 1);
-  strcpy(item, q->head->item);
-  q->head = q->head->next;
+  char* item = q->head->item;
+  if (q->size > 1) {
+    q->head = q->head->next;
+  } else {
+    q->head = NULL;
+  }
   q->size--;
   return item;
 }
 
 char * peek(Queue* q) {
-  Node* head = q->head;
-  char* item = malloc(strlen(head->item) + 1);
-  strcpy(item, head->item);
-  return item;
+  if (q->size > 0) {
+    return q->head->item;
+  } else {
+    return 0;
+  }
 }
 
 void * do_producer() {
@@ -78,22 +84,26 @@ void * do_producer() {
 
   while (getline(&line, &size, stdin) > -1) {
 
+    threads++;
     q1.push(&q1, line);
+
     //printf("%s", q1.pop(&q1));
     printf("%d", q1.size);
 
     i++;
-    threads++;
     printf("%d", threads);
 
   }
+  done = 1;
   printf("\n\nTotal lines: %d", i);
 }
 
 void * do_crunch() {
-  sleep(2);
-  while (1) {
+  int i = 0;
+  while (!q1.peek(&q1)) { }
+  while (i < threads || !done) {
     //printf("%s", q1.pop(&q1));
+    while (!q1.peek(&q1)) { }
     char *line = q1.pop(&q1);
     char *s;
 
@@ -104,20 +114,26 @@ void * do_crunch() {
     }
     printf ("%s", line);
     q2.push(&q2, line);
+    i++;
   }
 }
 
 void * do_gobble() {
-  /*
-  char *line = q2.pop(&q2);
+  int c = 0;
+  while (!q2.peek(&q2)) { }
+  while (c < threads || !done) {
+    while (!q2.peek(&q2)) { }
+    char *line = q2.pop(&q2);
 
-  int i = 0;
-  while (line[i] != '\0') {
-    line[i] = toupper(line[i]);
-    i++;
+    int i = 0;
+    while (line[i] != '\0') {
+      line[i] = toupper(line[i]);
+      i++;
+    }
+    printf("%s", line);
+    q3.push(&q3, line);
+    c++;
   }
-  q3.push(&q3, line);
-  */
 }
 
 void * do_consumer() {
@@ -144,10 +160,10 @@ int main(int argc, char **argv) {
   pthread_t crunch;
   pthread_t gobble;
   pthread_t consumer;
+  done = 0;
 
   if (pthread_create(&producer, NULL, &do_producer, NULL)) {
     printf("Could not create thread \n");
-    return -1;
   }
   if(pthread_create(&crunch, NULL, &do_crunch, NULL)) {
     printf("Couldn't create thread\n");
