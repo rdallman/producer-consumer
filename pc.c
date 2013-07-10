@@ -9,6 +9,7 @@
 
 #define ROW 10
 #define COL 63
+#define MAX_QUEUE 10
 
 int done;
 
@@ -22,12 +23,12 @@ typedef struct Queue {
   Node* head;
   Node* tail;
 
-  void (*push) (struct Queue*, char*);
+  int (*push) (struct Queue*, char*);
   char* (*pop) (struct Queue*);
   char* (*peek) (struct Queue*);
 } Queue;
 
-void push (Queue* q, char *line);
+int push (Queue* q, char *line);
 char* pop (Queue* q);
 char* peek (Queue* q);
 
@@ -43,18 +44,23 @@ Queue q2;
 Queue q3;
 
 
-void push (Queue* q, char *line) {
-  Node *n = (Node*)malloc (sizeof(Node));
-  n->item = malloc(strlen(line) + 1);
-  strcpy(n->item, line);
-  n->next = NULL;
-  if (!q->head) {
-    q->head = n;
+int push (Queue* q, char *line) {
+  if (q->size < MAX_QUEUE) {
+    Node *n = (Node*)malloc (sizeof(Node));
+    n->item = malloc(strlen(line) + 1);
+    strcpy(n->item, line);
+    n->next = NULL;
+    if (!q->head) {
+      q->head = n;
+    } else {
+      q->tail->next = n;
+    }
+    q->tail = n;
+    q->size++;
+    return 1;
   } else {
-    q->tail->next = n;
+    return 0;
   }
-  q->tail = n;
-  q->size++;
 }
 
 char * pop(Queue* q) {
@@ -85,13 +91,13 @@ void * do_producer() {
   while (getline(&line, &size, stdin) > -1) {
 
     threads++;
-    q1.push(&q1, line);
+    while (!q1.push(&q1, line)) { printf("q1"); }
 
     //printf("%s", q1.pop(&q1));
     printf("%d", q1.size);
 
     i++;
-    printf("%d", threads);
+    //printf("%d", threads);
 
   }
   done = 1;
@@ -100,7 +106,6 @@ void * do_producer() {
 
 void * do_crunch() {
   int i = 0;
-  while (!q1.peek(&q1)) { }
   while (i < threads || !done) {
     //printf("%s", q1.pop(&q1));
     while (!q1.peek(&q1)) { }
@@ -113,14 +118,13 @@ void * do_crunch() {
       s = strchr(s+1, ' ');
     }
     printf ("%s", line);
-    q2.push(&q2, line);
+    while (!q2.push(&q2, line)) { printf("q2"); }
     i++;
   }
 }
 
 void * do_gobble() {
   int c = 0;
-  while (!q2.peek(&q2)) { }
   while (c < threads || !done) {
     while (!q2.peek(&q2)) { }
     char *line = q2.pop(&q2);
@@ -131,17 +135,19 @@ void * do_gobble() {
       i++;
     }
     printf("%s", line);
-    q3.push(&q3, line);
+    while (!q3.push(&q3, line)) { printf("q3"); }
     c++;
   }
 }
 
 void * do_consumer() {
-  /*
-  char *line = q3.pop(&q3);
-  printf("%s", line);
-  threads--;
-  */
+  int c = 0;
+  while (c < threads || !done) {
+    while (!q3.peek(&q3)) { }
+    char *line = q3.pop(&q3);
+    printf("%s", line);
+    c++;
+  }
 }
 
 //bad
