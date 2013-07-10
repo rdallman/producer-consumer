@@ -56,17 +56,17 @@ void push (Queue* q, char *line) {
 }
 
 char * pop(Queue* q) {
-  Node* head = q->head;
-  char* item = malloc(COL * sizeof(char));
-  strcpy(item, head->item);
-  q->head = head->next;
+  char* item = malloc(COL * sizeof(char) + 1);
+  strcpy(item, q->head->item);
+  q->head = q->head->next;
   q->size--;
   return item;
 }
 
 char * peek(Queue* q) {
   Node* head = q->head;
-  char* item = head->item;
+  char* item = malloc(strlen(head->item) + 1);
+  strcpy(item, head->item);
   return item;
 }
 
@@ -79,7 +79,7 @@ void * do_producer() {
   while (getline(&line, &size, stdin) > -1) {
 
     q1.push(&q1, line);
-    printf("%s", q1.pop(&q1));
+    //printf("%s", q1.pop(&q1));
     printf("%d", q1.size);
 
     i++;
@@ -91,15 +91,10 @@ void * do_producer() {
 }
 
 void * do_crunch() {
-  /*
-  printf("crunch");
-  */
   sleep(2);
   while (1) {
     //printf("%s", q1.pop(&q1));
-    /*
     char *line = q1.pop(&q1);
-    printf ("%s", line);
     char *s;
 
     s = strchr(line, ' ');
@@ -107,9 +102,8 @@ void * do_crunch() {
       line[s-line] = '*';
       s = strchr(s+1, ' ');
     }
+    printf ("%s", line);
     q2.push(&q2, line);
-    *line = q1.pop(&q1);
-    */
   }
 }
 
