@@ -30,7 +30,7 @@ void push (Queue* q, char *line);
 char* pop (Queue* q);
 char* peek (Queue* q);
 
-void * do_producder();
+void * do_producer();
 void * do_crunch();
 void * do_gobble();
 void * do_consumer();
@@ -42,10 +42,11 @@ Queue q3;
 
 
 void push (Queue* q, char *line) {
-  Node* n = (Node*) malloc (sizeof(Node));
-  n->item = line;
+  Node *n = (Node*)malloc (sizeof(Node));
+  n->item = malloc(strlen(line) + 1);
+  strcpy(n->item, line);
   n->next = NULL;
-  if (q->head == NULL) {
+  if (!q->head) {
     q->head = n;
   } else {
     q->tail->next = n;
@@ -55,16 +56,17 @@ void push (Queue* q, char *line) {
 }
 
 char * pop(Queue* q) {
-  char *item = q->head->item;
   Node* head = q->head;
-  q->head = q->head->next;
+  char* item = malloc(COL * sizeof(char));
+  strcpy(item, head->item);
+  q->head = head->next;
   q->size--;
-  free(head);
   return item;
 }
 
 char * peek(Queue* q) {
-  char *item = q->head->item;
+  Node* head = q->head;
+  char* item = head->item;
   return item;
 }
 
@@ -77,7 +79,8 @@ void * do_producer() {
   while (getline(&line, &size, stdin) > -1) {
 
     q1.push(&q1, line);
-    printf("%s", line);
+    printf("%s", q1.pop(&q1));
+    printf("%d", q1.size);
 
     i++;
     threads++;
@@ -88,16 +91,26 @@ void * do_producer() {
 }
 
 void * do_crunch() {
-  char *line = q1.pop(&q1);
+  /*
+  printf("crunch");
+  */
+  sleep(2);
+  while (1) {
+    //printf("%s", q1.pop(&q1));
+    /*
+    char *line = q1.pop(&q1);
+    printf ("%s", line);
+    char *s;
 
-  char *s;
-
-  s = strchr(line, ' ');
-  while (s != NULL) {
-    line[s-line] = '*';
-    s = strchr(s+1, ' ');
+    s = strchr(line, ' ');
+    while (s != NULL) {
+      line[s-line] = '*';
+      s = strchr(s+1, ' ');
+    }
+    q2.push(&q2, line);
+    *line = q1.pop(&q1);
+    */
   }
-  q2.push(&q2, line);
 }
 
 void * do_gobble() {
