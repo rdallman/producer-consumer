@@ -65,18 +65,18 @@ int push (Queue* q, char *line) {
 
 char * pop(Queue* q) {
   char* item = q->head->item;
-  if (q->size > 1) {
-    q->head = q->head->next;
-  } else {
+  if (!q->head->next) {
     q->head = NULL;
+  } else {
+    q->head = q->head->next;
   }
   q->size--;
   return item;
 }
 
 char * peek(Queue* q) {
-  if (q->size > 0) {
-    return q->head->item;
+  if (q->head) {
+    return 1;
   } else {
     return 0;
   }
@@ -91,6 +91,7 @@ void * do_producer() {
   while (getline(&line, &size, stdin) > -1) {
 
     threads++;
+    //q1.push(&q1, line);
     while (!q1.push(&q1, line)) { printf("q1"); }
 
     //printf("%s", q1.pop(&q1));
@@ -117,6 +118,7 @@ void * do_crunch() {
       line[s-line] = '*';
       s = strchr(s+1, ' ');
     }
+    //q2.push(&q2, line);
     while (!q2.push(&q2, line)) { printf("q2"); }
     i++;
   }
@@ -133,6 +135,7 @@ void * do_gobble() {
       line[i] = toupper(line[i]);
       i++;
     }
+    //q3.push(&q3, line);
     while (!q3.push(&q3, line)) { printf("q3"); }
     c++;
   }
