@@ -94,7 +94,7 @@ void * do_producer() {
     while (!q1.push(&q1, line)) { printf("q1"); }
 
     //printf("%s", q1.pop(&q1));
-    printf("%d", q1.size);
+    //printf("%d", q1.size);
 
     i++;
     //printf("%d", threads);
@@ -117,7 +117,6 @@ void * do_crunch() {
       line[s-line] = '*';
       s = strchr(s+1, ' ');
     }
-    printf ("%s", line);
     while (!q2.push(&q2, line)) { printf("q2"); }
     i++;
   }
@@ -134,7 +133,6 @@ void * do_gobble() {
       line[i] = toupper(line[i]);
       i++;
     }
-    printf("%s", line);
     while (!q3.push(&q3, line)) { printf("q3"); }
     c++;
   }
