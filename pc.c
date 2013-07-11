@@ -7,8 +7,7 @@
 #include <string.h>
 #include <semaphore.h>
 
-#define ROW 10
-#define COL 63
+#define MAX_LINE 63
 #define MAX_QUEUE 10
 
 int done;
@@ -47,24 +46,16 @@ Queue q3;
 int push (Queue* q, char *line) {
   if (q->size < MAX_QUEUE) {
     Node *n = (Node*)malloc (sizeof(Node));
-    n->item = malloc(63 + 1);
-    if (strlen(line) > 63) {
-      /*
-      int i;
-      for (i = 0; i < 63; i++) {
-        n->item[i] = line[i];
-      }
-      n->item[63] = '\0';
-      */
-      line[62] = '\n';
-      strncat(n->item, line, 63);
+    n->item = malloc(MAX_LINE + 1);
+    if (strlen(line) > MAX_LINE) {
+      line[MAX_LINE - 1] = '\n';
+      strncat(n->item, line, MAX_LINE);
     } else {
       strcpy(n->item, line);
     }
 
-    //strcpy(n->item, line);
     n->next = NULL;
-    if (!q->head) {
+    if (!q->size) {
       q->head = n;
     } else {
       q->tail->next = n;
@@ -78,10 +69,29 @@ int push (Queue* q, char *line) {
 }
 
 char * pop(Queue* q) {
-  char* item = q->head->item;
-  if (!q->head->next) {
+  /*
+  if (!q || !q->head) {
+    return NULL;
+  }
+  Node* head = NULL;
+  char* item = malloc(strlen(q->head->item));
+  if(!q->head->next) {
+    strncpy(item, q->head->item, MAX_LINE + 1);
+    free(q->head);
     q->head = NULL;
+    q->tail = NULL;
   } else {
+    strncpy(item, q->head->item, MAX_LINE + 1);
+    head = q->head;
+    q->head = q->head->next;
+    free(head);
+  }
+  q->size--;
+
+  return item;
+  */
+  char* item = q->head->item;
+  if(q->size > 1) {
     q->head = q->head->next;
   }
   q->size--;
@@ -89,41 +99,33 @@ char * pop(Queue* q) {
 }
 
 char * peek(Queue* q) {
+  /*
   if (q->head) {
     return 1;
   } else {
     return 0;
   }
+  */
+  return q->size;
 }
 
 void * do_producer() {
-  char *line = malloc(COL);
+  char *line = malloc(MAX_LINE);
   size_t size;
-  int i = 0;
   threads = 0;
 
   while (getline(&line, &size, stdin) > -1) {
-
     threads++;
-    //q1.push(&q1, line);
     while (!q1.push(&q1, line)) {;}
-
-    //printf("%s", q1.pop(&q1));
-    //printf("%d", q1.size);
-
-    i++;
-    //printf("%d", threads);
-
   }
   done = 1;
-  printf("\n\nTotal lines: %d", i);
+  printf("\n\nTotal lines: %d", threads);
 }
 
 void * do_crunch() {
   int i = 0;
   while (i < threads || !done) {
-    //printf("%s", q1.pop(&q1));
-    while (!q1.peek(&q1)) {;}
+    while (!q1.peek(&q1)) {printf("q1");}
     char *line = q1.pop(&q1);
     char *s;
 
@@ -132,7 +134,6 @@ void * do_crunch() {
       line[s-line] = '*';
       s = strchr(s+1, ' ');
     }
-    //q2.push(&q2, line);
     while (!q2.push(&q2, line)) {;}
     i++;
   }
@@ -141,7 +142,7 @@ void * do_crunch() {
 void * do_gobble() {
   int c = 0;
   while (c < threads || !done) {
-    while (!q2.peek(&q2)) {;}
+    while (!q2.peek(&q2)) {printf("q2");}
     char *line = q2.pop(&q2);
 
     int i = 0;
@@ -158,7 +159,7 @@ void * do_gobble() {
 void * do_consumer() {
   int c = 0;
   while (c < threads || !done) {
-    while (!q3.peek(&q3)) {;}
+    while (!q3.peek(&q3)) {printf("q3");}
     char *line = q3.pop(&q3);
     printf("%s", line);
     free(line);
