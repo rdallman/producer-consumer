@@ -47,8 +47,22 @@ Queue q3;
 int push (Queue* q, char *line) {
   if (q->size < MAX_QUEUE) {
     Node *n = (Node*)malloc (sizeof(Node));
-    n->item = malloc(strlen(line) + 1);
-    strcpy(n->item, line);
+    n->item = malloc(63 + 1);
+    if (strlen(line) > 63) {
+      /*
+      int i;
+      for (i = 0; i < 63; i++) {
+        n->item[i] = line[i];
+      }
+      n->item[63] = '\0';
+      */
+      line[62] = '\n';
+      strncat(n->item, line, 63);
+    } else {
+      strcpy(n->item, line);
+    }
+
+    //strcpy(n->item, line);
     n->next = NULL;
     if (!q->head) {
       q->head = n;
@@ -83,7 +97,7 @@ char * peek(Queue* q) {
 }
 
 void * do_producer() {
-  char *line = (char*)malloc(COL * sizeof(char));
+  char *line = malloc(COL);
   size_t size;
   int i = 0;
   threads = 0;
@@ -92,7 +106,7 @@ void * do_producer() {
 
     threads++;
     //q1.push(&q1, line);
-    while (!q1.push(&q1, line)) { printf("q1"); }
+    while (!q1.push(&q1, line)) {;}
 
     //printf("%s", q1.pop(&q1));
     //printf("%d", q1.size);
@@ -109,7 +123,7 @@ void * do_crunch() {
   int i = 0;
   while (i < threads || !done) {
     //printf("%s", q1.pop(&q1));
-    while (!q1.peek(&q1)) { }
+    while (!q1.peek(&q1)) {;}
     char *line = q1.pop(&q1);
     char *s;
 
@@ -119,7 +133,7 @@ void * do_crunch() {
       s = strchr(s+1, ' ');
     }
     //q2.push(&q2, line);
-    while (!q2.push(&q2, line)) { printf("q2"); }
+    while (!q2.push(&q2, line)) {;}
     i++;
   }
 }
@@ -127,7 +141,7 @@ void * do_crunch() {
 void * do_gobble() {
   int c = 0;
   while (c < threads || !done) {
-    while (!q2.peek(&q2)) { }
+    while (!q2.peek(&q2)) {;}
     char *line = q2.pop(&q2);
 
     int i = 0;
@@ -136,7 +150,7 @@ void * do_gobble() {
       i++;
     }
     //q3.push(&q3, line);
-    while (!q3.push(&q3, line)) { printf("q3"); }
+    while (!q3.push(&q3, line)) {;}
     c++;
   }
 }
@@ -144,9 +158,10 @@ void * do_gobble() {
 void * do_consumer() {
   int c = 0;
   while (c < threads || !done) {
-    while (!q3.peek(&q3)) { }
+    while (!q3.peek(&q3)) {;}
     char *line = q3.pop(&q3);
     printf("%s", line);
+    free(line);
     c++;
   }
 }
