@@ -21,15 +21,18 @@ typedef struct Queue {
   int size;
   Node* head;
   Node* tail;
+  pthread_mutex_t mutex;
+  pthread_cond_t max;
+  pthread_cond_t start;
 
-  int (*push) (struct Queue*, char*);
+  void* (*push) (struct Queue*, char*);
   char* (*pop) (struct Queue*);
-  char* (*peek) (struct Queue*);
+  struct Queue* (*init) ();
 } Queue;
 
-int push (Queue* q, char *line);
+void* push (Queue* q, char *line);
 char* pop (Queue* q);
-char* peek (Queue* q);
+Queue* init ();
 
 void * do_producer();
 void * do_crunch();
@@ -38,75 +41,52 @@ void * do_consumer();
 
 int done;
 int threads;
-Queue q1;
-Queue q2;
-Queue q3;
+Queue* q1;
+Queue* q2;
+Queue* q3;
 
 
-int push (Queue* q, char *line) {
-  if (q->size < MAX_QUEUE) {
+void * push (Queue* q, char *line) {
     Node *n = (Node*)malloc (sizeof(Node));
-    n->item = malloc(MAX_LINE + 1);
+    n->item = line;
+    n->next = NULL;
+    /*
     if (strlen(line) > MAX_LINE) {
       line[MAX_LINE - 1] = '\n';
       strncat(n->item, line, MAX_LINE);
     } else {
       strcpy(n->item, line);
     }
+    */
 
-    n->next = NULL;
-    if (!q->size) {
+    if (q->head == NULL) {
       q->head = n;
     } else {
       q->tail->next = n;
     }
     q->tail = n;
     q->size++;
-    return 1;
-  } else {
-    return 0;
-  }
 }
 
 char * pop(Queue* q) {
-  /*
-  if (!q || !q->head) {
-    return NULL;
-  }
-  Node* head = NULL;
-  char* item = malloc(strlen(q->head->item));
-  if(!q->head->next) {
-    strncpy(item, q->head->item, MAX_LINE + 1);
-    free(q->head);
-    q->head = NULL;
-    q->tail = NULL;
-  } else {
-    strncpy(item, q->head->item, MAX_LINE + 1);
-    head = q->head;
-    q->head = q->head->next;
-    free(head);
-  }
-  q->size--;
-
-  return item;
-  */
-  char* item = q->head->item;
-  if(q->size > 1) {
-    q->head = q->head->next;
-  }
+  Node* head = q->head;
+  char *item = head->item;
+  q->head = head->next;
+  //free(&head);
   q->size--;
   return item;
 }
 
-char * peek(Queue* q) {
-  /*
-  if (q->head) {
-    return 1;
-  } else {
-    return 0;
-  }
-  */
-  return q->size;
+Queue* init() {
+  Queue* q;
+  q = (Queue*)malloc(sizeof(Queue));
+  q->size = 0;
+  q->head = NULL;
+  q->tail = NULL;
+  q->push = &push;
+  q->pop = &pop;
+  pthread_mutex_init(&q->mutex, NULL);
+  return q;
 }
 
 void * do_producer() {
@@ -115,8 +95,15 @@ void * do_producer() {
   threads = 0;
 
   while (getline(&line, &size, stdin) > -1) {
+    pthread_mutex_lock(&q1->mutex);
+    while (q1->size >= MAX_QUEUE) {
+      pthread_cond_wait(&q1->max, &q1->mutex);
+    }
+    printf("%d", q1->size);
     threads++;
-    while (!q1.push(&q1, line)) {;}
+    q1->push(q1, line);
+    pthread_cond_signal(&q1->start);
+    pthread_mutex_unlock(&q1->mutex);
   }
   done = 1;
   printf("\n\nTotal lines: %d", threads);
@@ -125,8 +112,15 @@ void * do_producer() {
 void * do_crunch() {
   int i = 0;
   while (i < threads || !done) {
-    while (!q1.peek(&q1)) {printf("q1");}
-    char *line = q1.pop(&q1);
+    pthread_mutex_lock(&q1->mutex);
+    while (q1->size <= 0)  {
+      pthread_cond_wait(&q1->start, &q1->mutex);
+    }
+    char *line = q1->pop(q1);
+
+    pthread_cond_signal(&q1->max);
+    pthread_mutex_unlock(&q1->mutex);
+
     char *s;
 
     s = strchr(line, ' ');
@@ -134,51 +128,72 @@ void * do_crunch() {
       line[s-line] = '*';
       s = strchr(s+1, ' ');
     }
-    while (!q2.push(&q2, line)) {;}
+    printf("%s", line);
+
+    pthread_mutex_lock(&q2->mutex);
+    while (q2->size >= MAX_QUEUE) {
+      pthread_cond_wait(&q2->max, &q2->mutex);
+    }
+    printf("%d", q2->size);
+    q2->push(q2, line);
     i++;
+    pthread_cond_signal(&q2->start);
+    pthread_mutex_unlock(&q2->mutex);
   }
 }
 
 void * do_gobble() {
   int c = 0;
   while (c < threads || !done) {
-    while (!q2.peek(&q2)) {printf("q2");}
-    char *line = q2.pop(&q2);
+    pthread_mutex_lock(&q2->mutex);
+    while (q2->size <= 0) {
+      pthread_cond_wait(&q2->start, &q2->mutex);
+    }
+    char *line = q2->pop(q2);
+    pthread_cond_signal(&q2->max);
+    pthread_mutex_unlock(&q2->mutex);
 
     int i = 0;
     while (line[i] != '\0') {
       line[i] = toupper(line[i]);
       i++;
     }
-    //q3.push(&q3, line);
-    while (!q3.push(&q3, line)) {;}
+
+    pthread_mutex_lock(&q3->mutex);
+    while (q3->size >= MAX_QUEUE) {
+      pthread_cond_wait(&q3->max, &q3->mutex);
+    }
+    printf("%d", q3->size);
+    q3->push(q3, line);
     c++;
+    pthread_cond_signal(&q3->start);
+    pthread_mutex_unlock(&q3->mutex);
   }
 }
 
 void * do_consumer() {
   int c = 0;
   while (c < threads || !done) {
-    while (!q3.peek(&q3)) {printf("q3");}
-    char *line = q3.pop(&q3);
+    pthread_mutex_lock(&q3->mutex);
+    while (q3->size <= 0) {
+      pthread_cond_wait(&q3->start, &q3->mutex);
+    }
+    char *line = q3->pop(q3);
     printf("%s", line);
-    free(line);
+    //free(line);
     c++;
+    pthread_cond_signal(&q3->max);
+    pthread_mutex_unlock(&q3->mutex);
   }
 }
 
 //bad
 
 int main(int argc, char **argv) {
-  q1.size = 0;
-  q1.head = NULL;
-  q1.tail = NULL;
-  q1.push = &push;
-  q1.pop = &pop;
-  q1.peek = &peek;
+  q1 = init();
+  q2 = init();
+  q3 = init();
 
-  q2 = q1;
-  q3 = q1;
   pthread_t producer;
   pthread_t crunch;
   pthread_t gobble;
@@ -215,6 +230,7 @@ int main(int argc, char **argv) {
   {
     printf("Could not join thread\n");
   }
+
 
   return 0;
 }

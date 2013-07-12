@@ -1,0 +1,35 @@
+
+
+producer
+  if q1 = MAX
+    wait
+
+  signal crunch if q1 = 0
+
+crunch
+  if q1 = 0
+    wait
+
+  signal producer if q1 = MAX
+
+  if q2 = MAX
+    wait
+
+  signal gobble if q2 = 0
+
+gobble
+  if q2 = 0
+    wait
+
+  signal crunch if q2 = MAX
+
+  if q3 = MAX
+    wait
+
+  signal consumer if q3 = 0
+
+consumer
+  if q3 = 0
+    wait
+
+  signal gobble if q3 = MAX
