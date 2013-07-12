@@ -132,7 +132,6 @@ void * do_gobble() {
       line[i] = toupper(line[i]);
       i++;
     }
-    //q3.push(&q3, line);
     while (!q3.push(&q3, line)) {
       sem_wait(&q3.max);
     }
