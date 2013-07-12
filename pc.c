@@ -24,12 +24,14 @@ typedef struct Queue {
 
   int (*push) (struct Queue*, char*);
   char* (*pop) (struct Queue*);
-  char* (*peek) (struct Queue*);
+  Node* (*peek) (struct Queue*);
+  sem_t max;
+  sem_t start;
 } Queue;
 
 int push (Queue* q, char *line);
 char* pop (Queue* q);
-char* peek (Queue* q);
+Node* peek (Queue* q);
 
 void * do_producer();
 void * do_crunch();
@@ -53,9 +55,8 @@ int push (Queue* q, char *line) {
     } else {
       strcpy(n->item, line);
     }
-
     n->next = NULL;
-    if (!q->size) {
+    if (!q->head) {
       q->head = n;
     } else {
       q->tail->next = n;
@@ -69,44 +70,14 @@ int push (Queue* q, char *line) {
 }
 
 char * pop(Queue* q) {
-  /*
-  if (!q || !q->head) {
-    return NULL;
-  }
-  Node* head = NULL;
-  char* item = malloc(strlen(q->head->item));
-  if(!q->head->next) {
-    strncpy(item, q->head->item, MAX_LINE + 1);
-    free(q->head);
-    q->head = NULL;
-    q->tail = NULL;
-  } else {
-    strncpy(item, q->head->item, MAX_LINE + 1);
-    head = q->head;
-    q->head = q->head->next;
-    free(head);
-  }
-  q->size--;
-
-  return item;
-  */
   char* item = q->head->item;
-  if(q->size > 1) {
-    q->head = q->head->next;
-  }
+  q->head = q->head->next;
   q->size--;
   return item;
 }
 
-char * peek(Queue* q) {
-  /*
-  if (q->head) {
-    return 1;
-  } else {
-    return 0;
-  }
-  */
-  return q->size;
+Node * peek(Queue* q) {
+  return q->head;
 }
 
 void * do_producer() {
@@ -116,25 +87,33 @@ void * do_producer() {
 
   while (getline(&line, &size, stdin) > -1) {
     threads++;
-    while (!q1.push(&q1, line)) {;}
+    while (!q1.push(&q1, line)) {
+      sem_wait(&q1.max);
+    }
+    sem_post(&q1.start);
   }
   done = 1;
-  printf("\n\nTotal lines: %d", threads);
 }
 
 void * do_crunch() {
   int i = 0;
   while (i < threads || !done) {
-    while (!q1.peek(&q1)) {printf("q1");}
+    while (!q1.peek(&q1)) {
+      sem_wait(&q1.start);
+    }
     char *line = q1.pop(&q1);
     char *s;
+    sem_post(&q1.max);
 
     s = strchr(line, ' ');
     while (s != NULL) {
       line[s-line] = '*';
       s = strchr(s+1, ' ');
     }
-    while (!q2.push(&q2, line)) {;}
+    while (!q2.push(&q2, line)) {
+      sem_wait(&q2.max);
+    }
+    sem_post(&q2.start);
     i++;
   }
 }
@@ -142,8 +121,11 @@ void * do_crunch() {
 void * do_gobble() {
   int c = 0;
   while (c < threads || !done) {
-    while (!q2.peek(&q2)) {printf("q2");}
+    while (!q2.peek(&q2)) {
+      sem_wait(&q2.start);
+    }
     char *line = q2.pop(&q2);
+    sem_post(&q2.max);
 
     int i = 0;
     while (line[i] != '\0') {
@@ -151,7 +133,10 @@ void * do_gobble() {
       i++;
     }
     //q3.push(&q3, line);
-    while (!q3.push(&q3, line)) {;}
+    while (!q3.push(&q3, line)) {
+      sem_wait(&q3.max);
+    }
+    sem_post(&q3.start);
     c++;
   }
 }
@@ -159,15 +144,17 @@ void * do_gobble() {
 void * do_consumer() {
   int c = 0;
   while (c < threads || !done) {
-    while (!q3.peek(&q3)) {printf("q3");}
+    while (!q3.peek(&q3)) {
+      sem_wait(&q3.start);
+    }
     char *line = q3.pop(&q3);
+    sem_post(&q3.max);
     printf("%s", line);
     free(line);
     c++;
   }
+  printf("\n\nTotal lines: %d", threads);
 }
-
-//bad
 
 int main(int argc, char **argv) {
   q1.size = 0;
@@ -176,6 +163,8 @@ int main(int argc, char **argv) {
   q1.push = &push;
   q1.pop = &pop;
   q1.peek = &peek;
+  sem_init(&q1.start, 0, 0);
+  sem_init(&q1.max, 0, 0);
 
   q2 = q1;
   q3 = q1;
@@ -215,6 +204,13 @@ int main(int argc, char **argv) {
   {
     printf("Could not join thread\n");
   }
+
+  sem_destroy(&q1.max);
+  sem_destroy(&q1.start);
+  sem_destroy(&q2.max);
+  sem_destroy(&q2.start);
+  sem_destroy(&q3.max);
+  sem_destroy(&q3.start);
 
   return 0;
 }
