@@ -153,6 +153,7 @@ void * do_consumer() {
     c++;
   }
   printf("\n\nTotal lines: %d", threads);
+  printf("\n");
 }
 
 int main(int argc, char **argv) {
